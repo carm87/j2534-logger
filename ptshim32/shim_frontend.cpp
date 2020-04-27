@@ -334,6 +334,7 @@ extern "C" long J2534_API PassThruReadMsgs(unsigned long ChannelID, PASSTHRU_MSG
 	for (unsigned long i=0; i < *pNumMsgs; i++)
 	{
 		pMsg[i].ProtocolID=ProtocolID_;
+		pMsg[i].Timestamp*=1000;
 			if (pMsg[i].DataSize > 4)
 		{
 			if ( ((pMsg[i].Data[0]&31)|(pMsg[i].Data[1])|(pMsg[i].Data[2]&248))>0)

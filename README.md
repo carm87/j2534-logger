@@ -1,3 +1,6 @@
+BRANCK to allow usage of cheap MVCI interface as CAN bus logger with BUSMASTER or other similar software.
+
+
 This library helps to debug software that uses the API for PassThru Vehicle Reprogramming (SAE J2534-1). It captures all necessary information to debug problems and presents that information to engineers in a human-readable form.
 
 This software:

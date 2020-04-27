@@ -11,6 +11,16 @@
 #include "ptshim.h"
 #include "SelectionBox.h"
 using namespace std;
+bool ResetEachTX;
+bool EN_TXT_FIX;
+bool EN_RXT_FIX;
+bool EN_PID_FIX;
+bool masktxt;
+bool maskrxt;
+unsigned long TXT;
+unsigned long RXT;
+unsigned long PID;
+unsigned int sogliareset;
 
 // SelectionBox dialog
 
@@ -34,6 +44,16 @@ void CSelectionBox::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_J2534REGINFO, m_detailtext);
 	DDX_Control(pDX, IDC_BUTTON1, m_button_config);
 	DDX_Control(pDX, IDC_EDIT1, m_logfilename);
+	DDX_Control(pDX, IDC_CHECK2, m_reseteachtxcheck);
+	DDX_Control(pDX, IDC_CHECK3, m_fixpid);
+	DDX_Control(pDX, IDC_CHECK4, m_fixtxt);
+	DDX_Control(pDX, IDC_CHECK5, m_fixrxt);
+	DDX_Control(pDX, IDC_EDIT2, m_pid);
+	DDX_Control(pDX, IDC_EDIT3, m_txt);
+	DDX_Control(pDX, IDC_EDIT4, m_rxt);
+	DDX_Control(pDX, IDC_CHECK6, m_masktxt);
+	DDX_Control(pDX, IDC_CHECK7, m_maskrxt);
+	DDX_Control(pDX, IDC_EDIT5, m_sogliareset);
 }
 
 
@@ -63,6 +83,11 @@ BOOL CSelectionBox::OnInitDialog()
 		LocalTime.wMilliseconds);
 
 	m_logfilename.SetWindowText(cstrPath);
+
+	m_pid.SetWindowText(_T("5"));
+	m_rxt.SetWindowText(_T("10"));
+	m_txt.SetWindowText(_T("10"));
+	m_sogliareset.SetWindowText(_T("1"));
 
 	DoPopulateRegistryListbox();
 
@@ -178,6 +203,29 @@ void CSelectionBox::OnBnClickedOk()
 	// Return if you determine that the FunctionLibrary does not exist or
 	// is unusable for some reason
 
+	char *end =new char;
+	
+	
+
+	ResetEachTX= (m_reseteachtxcheck.GetCheck()==BST_CHECKED);
+	EN_TXT_FIX=m_fixtxt.GetCheck()==BST_CHECKED;
+	EN_RXT_FIX=m_fixrxt.GetCheck()==BST_CHECKED;
+	EN_PID_FIX=m_fixpid.GetCheck()==BST_CHECKED;
+	masktxt=m_masktxt.GetCheck()==BST_CHECKED;
+	maskrxt=m_maskrxt.GetCheck()==BST_CHECKED;
+	m_txt.GetWindowText(STXT);
+	m_rxt.GetWindowText(SRXT);
+	m_pid.GetWindowText(SPID);
+	m_sogliareset.GetWindowText(Ssogliareset);
+	PID= _ttoi(SPID);
+	TXT= _ttoi(STXT);
+	RXT= _ttoi(SRXT);
+	sogliareset= _ttoi(Ssogliareset);
+	if (sogliareset <1)
+	{
+		sogliareset=1;
+	}
+
 	OnOK();
 }
 
@@ -241,3 +289,5 @@ CString CSelectionBox::GetDebugFilename()
 {
 	return cstrDebugFile;
 }
+
+

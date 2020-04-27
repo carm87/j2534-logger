@@ -27,6 +27,7 @@
 #include "shim_debug.h"
 #include "shim_loader.h"
 #include "shim_output.h"
+extern bool ResetEachTX;
 
 // Pointers to J2534 API functions in the loaded library
 PTOPEN _PassThruOpen = 0;
@@ -43,6 +44,7 @@ PTSETPROGRAMMINGVOLTAGE _PassThruSetProgrammingVoltage = 0;
 PTREADVERSION _PassThruReadVersion = 0;
 PTGETLASTERROR _PassThruGetLastError = 0;
 PTIOCTL _PassThruIoctl = 0;
+
 
 static HINSTANCE hDLL = NULL;
 
@@ -227,9 +229,9 @@ bool shim_checkAndAutoload(void)
 	// a dialog, and allowing the user to pick a J2534 DLL. Leave it undefined if you want to force
 	// the app to call PassThruLoadLibrary
 
-#ifndef ALLOW_POPUP
-	return false;
-#endif
+//#ifndef ALLOW_POPUP
+//return false;
+//#endif
 
 	// Check the registry for J2534 interfaces
 	std::set<cPassThruInfo> interfaceList;
@@ -266,7 +268,7 @@ bool shim_checkAndAutoload(void)
 		}
 
 		cPassThruInfo * tmp = Dlg.GetSelectedPassThru();
-
+		
 		bool fSuccess;
 		fSuccess = shim_loadLibrary(tmp->FunctionLibrary.c_str());
 		if (! fSuccess)
@@ -298,7 +300,6 @@ bool shim_loadLibrary(LPCTSTR szDLL)
 	{
 		return false;
 	}
-
 	hDLL = LoadLibrary(szDLL);
 	if (hDLL == NULL)
 	{
@@ -359,6 +360,7 @@ void shim_unloadLibrary()
 		// Set the internal error text based on the win32 message
 	}
 }
+
 
 bool shim_hasLibraryLoaded()
 {

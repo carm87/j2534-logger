@@ -35,7 +35,7 @@ class cPassThruInfo
 {
 public:
 	cPassThruInfo(tstring Vendor, tstring Name, tstring FunctionLibrary, tstring ConfigApplication)
-		: Vendor(Vendor), Name(Name), FunctionLibrary(FunctionLibrary), ConfigApplication(ConfigApplication) {};
+		: Vendor(Vendor), Name(Name), FunctionLibrary(FunctionLibrary), ConfigApplication(ConfigApplication)  {};
 
 	bool operator<(const cPassThruInfo &rhs) const
 	{
@@ -61,6 +61,7 @@ double GetTimeSinceInit();
 bool shim_checkAndAutoload(void);
 bool shim_loadLibrary(LPCTSTR szDLL);
 void shim_unloadLibrary();
+
 bool shim_hasLibraryLoaded();
 
 extern PTOPEN _PassThruOpen;

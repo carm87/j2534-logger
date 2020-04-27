@@ -16,13 +16,11 @@
 #undef APSTUDIO_READONLY_SYMBOLS
 
 /////////////////////////////////////////////////////////////////////////////
-// English (U.S.) resources
+// Inglese (Stati Uniti) resources
 
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
-#ifdef _WIN32
 LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
 #pragma code_page(1252)
-#endif //_WIN32
 
 #ifdef APSTUDIO_INVOKED
 /////////////////////////////////////////////////////////////////////////////
@@ -114,12 +112,23 @@ FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
     DEFPUSHBUTTON   "OK",IDOK,205,204,50,14,WS_DISABLED
     PUSHBUTTON      "Cancel",IDCANCEL,259,204,50,14
-    GROUPBOX        "Details",IDC_STATIC,116,7,193,136
-    CONTROL         "",IDC_LIST1,"SysListView32",LVS_LIST | LVS_SINGLESEL | LVS_ALIGNLEFT | WS_BORDER | WS_TABSTOP,7,7,102,211
-    LTEXT           "Select J2534 interface then click OK",IDC_J2534REGINFO,125,20,177,118
-    PUSHBUTTON      "Config",IDC_BUTTON1,116,204,50,14,WS_DISABLED
-    EDITTEXT        IDC_EDIT1,116,158,136,14,ES_AUTOHSCROLL
-    PUSHBUTTON      "Browse",IDC_BUTTON2,259,158,50,14
+    GROUPBOX        "Details",IDC_STATIC,116,7,193,135
+    CONTROL         "",IDC_LIST1,"SysListView32",LVS_LIST | LVS_SINGLESEL | LVS_ALIGNLEFT | WS_BORDER | WS_TABSTOP,8,7,102,134
+    LTEXT           "Select J2534 interface then click OK",IDC_J2534REGINFO,125,20,177,114
+    PUSHBUTTON      "Config",IDC_BUTTON1,62,204,50,14,WS_DISABLED
+    EDITTEXT        IDC_EDIT1,8,184,301,14,ES_AUTOHSCROLL
+    PUSHBUTTON      "Browse",IDC_BUTTON2,8,204,50,14
+    CONTROL         "Reset each",IDC_CHECK2,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,8,162,47,17
+    CONTROL         "Protocol ID",IDC_CHECK3,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,8,141,52,17
+    CONTROL         "TX Timeout",IDC_CHECK4,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,119,141,54,17
+    CONTROL         "RX Timeout",IDC_CHECK5,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,216,140,54,17
+    EDITTEXT        IDC_EDIT2,59,144,35,12,ES_AUTOHSCROLL | ES_NUMBER,WS_EX_RIGHT
+    EDITTEXT        IDC_EDIT3,171,144,35,12,ES_AUTOHSCROLL | ES_NUMBER,WS_EX_RIGHT
+    EDITTEXT        IDC_EDIT4,267,144,35,12,ES_AUTOHSCROLL | ES_NUMBER,WS_EX_RIGHT
+    CONTROL         "Mask TX Timeout Error",IDC_CHECK6,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,119,162,88,17
+    CONTROL         "Mask RX Timeout Error",IDC_CHECK7,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,216,162,86,17
+    EDITTEXT        IDC_EDIT5,55,164,19,12,ES_AUTOHSCROLL | ES_NUMBER,WS_EX_RIGHT
+    LTEXT           "TX frame(s)",IDC_STATIC,77,166,38,11
 END
 
 
@@ -129,19 +138,20 @@ END
 //
 
 #ifdef APSTUDIO_INVOKED
-GUIDELINES DESIGNINFO 
+GUIDELINES DESIGNINFO
 BEGIN
     IDD_DIALOG1, DIALOG
     BEGIN
-        LEFTMARGIN, 7
+        LEFTMARGIN, 8
         RIGHTMARGIN, 309
+        VERTGUIDE, 205
         TOPMARGIN, 7
         BOTTOMMARGIN, 218
     END
 END
 #endif    // APSTUDIO_INVOKED
 
-#endif    // English (U.S.) resources
+#endif    // Inglese (Stati Uniti) resources
 /////////////////////////////////////////////////////////////////////////////
 
 

@@ -32,12 +32,25 @@ private:
 
 	cPassThruInfo * sel;
 	CString cstrDebugFile;
-
+	CString STXT;
+	CString SRXT;
+	CString SPID;
+	CString Ssogliareset;
 	CListCtrl m_listview;
 	CEdit m_logfilename;
 	CStatic m_detailtext;
 	CButton m_button_ok;
 	CButton m_button_config;
+	CButton m_reseteachtxcheck;
+	CButton m_fixpid;
+	CButton m_fixtxt;
+	CButton m_fixrxt;
+	CEdit m_pid;
+	CEdit m_txt;
+	CEdit m_rxt;
+	CButton m_masktxt;
+	CButton m_maskrxt;
+	CEdit m_sogliareset;
 
 	void DoPopulateRegistryListbox();
 
@@ -52,4 +65,7 @@ public:
 
 	cPassThruInfo * GetSelectedPassThru();
 	CString GetDebugFilename();
+	afx_msg void OnBnClickedCheck1();
+	afx_msg void OnEnChangeEdit1();
+	afx_msg void OnBnHotItemChangeCheck1(NMHDR *pNMHDR, LRESULT *pResult);
 };

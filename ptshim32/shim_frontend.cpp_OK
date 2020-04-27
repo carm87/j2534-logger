@@ -39,22 +39,8 @@ unsigned long ProtocolID_;
 unsigned long Flags_;
 unsigned long Baudrate_;
 unsigned long *pChannelID_= new unsigned long;
-unsigned long ChannelID_;
-unsigned int countertx=0;
-
 _SCONFIG_LIST lista;
-_SCONFIG parametri[100];
-
-extern bool ResetEachTX;
-extern bool EN_TXT_FIX;
-extern bool EN_RXT_FIX;
-extern bool EN_PID_FIX;
-extern bool masktxt;
-extern bool maskrxt;
-extern unsigned long TXT;
-extern unsigned long RXT;
-extern unsigned long PID;
-extern unsigned int sogliareset;
+_SCONFIG parametri;
 
 
 #define SHIM_CHECK_DLL() \
@@ -113,13 +99,18 @@ extern "C" long J2534_API PassThruLoadLibrary(char * szFunctionLibrary)
 
 long PassThruIoctl_mia(unsigned long ChannelID, unsigned long IoctlID, void *pInput, void *pOutput)
 {
-
+	ifstream file4 ("ChannelID.bin", ios::in | ios::binary);
+	if (file4.is_open())
+	{
+		file4.read ((char*)&ChannelID, sizeof(ChannelID));
+		file4.close (); 
+	}
 	AFX_MANAGE_STATE(AfxGetStaticModuleState());
 	auto_lock lock;
 	long retval;
 
 	shim_clearInternalError();
-	dtDebug(_T("%.3fs ** PTIoctl(%ld, %s, 0x%08X, 0x%08X)\n"), GetTimeSinceInit(), ChannelID_, dbug_ioctl(IoctlID).c_str(), pInput, pOutput);
+	dtDebug(_T("%.3fs ** PTIoctl(%ld, %s, 0x%08X, 0x%08X)\n"), GetTimeSinceInit(), ChannelID, dbug_ioctl(IoctlID).c_str(), pInput, pOutput);
 	SHIM_CHECK_DLL();
 	SHIM_CHECK_FUNCTION(_PassThruIoctl);
 
@@ -131,15 +122,34 @@ long PassThruIoctl_mia(unsigned long ChannelID, unsigned long IoctlID, void *pIn
 		dbug_printsconfig((SCONFIG_LIST *) pInput);
 		break;
 	// Do nothing for READ_VBATT input
-	
+	case FIVE_BAUD_INIT:
+		dbug_printsbyte((SBYTE_ARRAY *) pInput, _T("Input"));
+		break;
+	case FAST_INIT:
+		dbug_printmsg((PASSTHRU_MSG *) pInput, _T("Input"), 1, true);
+		break;
 	case CLEAR_TX_BUFFER:
 		dtDebug(_T("CLEAR_TX_BUFFER"));
 		break;
 	case CLEAR_RX_BUFFER:
 		dtDebug(_T("CLEAR_RX_BUFFER"));
 		break;
-	}	
-	retval = _PassThruIoctl(ChannelID_, IoctlID, pInput, pOutput);
+
+	// Do nothing for CLEAR_TX_BUFFER
+	// Do nothing for CLEAR_RX_BUFFER
+	// Do nothing for CLEAR_PERIODIC_MSGS
+	// Do nothing for CLEAR_MSG_FILTERS
+	// Do nothing for CLEAR_FUNCT_MSG_LOOKUP_TABLE
+	case ADD_TO_FUNCT_MSG_LOOKUP_TABLE:
+		dbug_printsbyte((SBYTE_ARRAY *) pInput, _T("Add"));
+		break;
+	case DELETE_FROM_FUNCT_MSG_LOOKUP_TABLE:
+		dbug_printsbyte((SBYTE_ARRAY *) pInput, _T("Delete"));
+		break;
+	// Do nothing for READ_PROG_VOLTAGE
+	}
+
+	retval = _PassThruIoctl(ChannelID, IoctlID, pInput, pOutput);
 
 	// Print any changed info after making the call
 	switch (IoctlID)
@@ -147,7 +157,30 @@ long PassThruIoctl_mia(unsigned long ChannelID, unsigned long IoctlID, void *pIn
 	case GET_CONFIG:
 		dbug_printsconfig((SCONFIG_LIST *) pInput);
 		break;
+	// Do nothing for SET_CONFIG
+	case READ_VBATT:
+		if (pOutput != NULL)
+			dtDebug(_T("  %f Volts\n"), ((*(unsigned long*)pOutput)) / (float) 1000);
+		break;
+	case FIVE_BAUD_INIT:
+		dbug_printsbyte((SBYTE_ARRAY *) pInput, _T("Output"));
+		break;
+	case FAST_INIT:
+		dbug_printmsg((PASSTHRU_MSG *) pOutput, _T("Input"), 1, false);
+		break;
+	// Do nothing for CLEAR_TX_BUFFER
+	// Do nothing for CLEAR_RX_BUFFER
+	// Do nothing for CLEAR_PERIODIC_MSGS
+	// Do nothing for CLEAR_MSG_FILTERS
+	// Do nothing for CLEAR_FUNCT_MSG_LOOKUP_TABLE
+	// Do nothing for ADD_TO_FUNCT_MSG_LOOKUP_TABLE:
+	// Do nothing for DELETE_FROM_FUNCT_MSG_LOOKUP_TABLE:
+	case READ_PROG_VOLTAGE:
+		if (pOutput != NULL)
+			dtDebug(_T("  %f Volts\n"), ((*(unsigned long*)pOutput)) / (float) 1000);
+		break;
 	}
+
 	dbug_printretval(retval);
 	return retval;
 }
@@ -206,9 +239,6 @@ extern "C" long J2534_API PassThruSaveLog(char *szFilename)
 
 extern "C" long J2534_API PassThruOpen(void *pName, unsigned long *pDeviceID)
 {
-	//inizializzo configptr
-	lista.ConfigPtr = &parametri[0];
-	//
 	AFX_MANAGE_STATE(AfxGetStaticModuleState());
 	auto_lock lock;
 	unsigned long retval;
@@ -244,24 +274,21 @@ extern "C" long J2534_API PassThruClose(unsigned long DeviceID)
 
 extern "C" long J2534_API PassThruConnect(unsigned long DeviceID, unsigned long ProtocolID, unsigned long Flags, unsigned long Baudrate, unsigned long *pChannelID)
 {
-	//MEMORIZZO GLI INPUT PER SUCCESSIVA CONNECT AUTOMATICA//
 	DeviceID_=DeviceID;
 	ProtocolID_=ProtocolID;  
 	Flags_=Flags; 
 	Baudrate_=Baudrate;
-	//
-
 	AFX_MANAGE_STATE(AfxGetStaticModuleState());
 	auto_lock lock;
 	long retval;
 
-
-	if ((EN_PID_FIX)&&(PID>0)&&(PID<11))
+		
+	ifstream file ("ProtocolID.bin", ios::in | ios::binary);
+	if (file.is_open())
 	{
-	ProtocolID=PID;
+		file.read ((char*)&ProtocolID, sizeof(ProtocolID));
+		file.close (); 
 	}
-
-
 
 	shim_clearInternalError();
 	dtDebug(_T("%.3fs ++ PTConnect(%ld, %s, 0x%08X, %ld, 0x%08X)\n"), GetTimeSinceInit(), DeviceID, dbug_prot(ProtocolID).c_str(), Flags, Baudrate, pChannelID);
@@ -277,28 +304,33 @@ extern "C" long J2534_API PassThruConnect(unsigned long DeviceID, unsigned long 
 
 	dbug_printretval(retval);
 	
- 
+
+    ofstream file3 ("ChannelID.bin", ios::binary);
+    file3.write ((char *)pChannelID, sizeof(*pChannelID));
+    file3.close (); 
     
-	//SALVO IL CANALE RICEVUTO NELLA CONNECT
-	ChannelID_=*pChannelID;
-
-
 	
 	return retval;
 }
 
 extern "C" long J2534_API PassThruDisconnect(unsigned long ChannelID)
 {
+	ifstream file4 ("ChannelID.bin", ios::in | ios::binary);
+	if (file4.is_open())
+	{
+		file4.read ((char*)&ChannelID, sizeof(ChannelID));
+		file4.close (); 
+	}
 	AFX_MANAGE_STATE(AfxGetStaticModuleState());
 	auto_lock lock;
 	long retval;
 
 	shim_clearInternalError();
-	dtDebug(_T("%.3fs -- PTDisconnect(%ld)\n"), GetTimeSinceInit(), ChannelID_);
+	dtDebug(_T("%.3fs -- PTDisconnect(%ld)\n"), GetTimeSinceInit(), ChannelID);
 	SHIM_CHECK_DLL();
 	SHIM_CHECK_FUNCTION(_PassThruDisconnect);
 
-	retval = _PassThruDisconnect(ChannelID_);
+	retval = _PassThruDisconnect(ChannelID);
 
 	dbug_printretval(retval);
 	return retval;
@@ -306,11 +338,28 @@ extern "C" long J2534_API PassThruDisconnect(unsigned long ChannelID)
 
 extern "C" long J2534_API PassThruReadMsgs(unsigned long ChannelID, PASSTHRU_MSG *pMsg, unsigned long *pNumMsgs, unsigned long Timeout)
 {
-
-
-	if ((EN_RXT_FIX)&&(RXT>0)&&(RXT<4294967295))
+	ifstream file4 ("ChannelID.bin", ios::in | ios::binary);
+	if (file4.is_open())
 	{
-	Timeout=RXT;
+		file4.read ((char*)&ChannelID, sizeof(ChannelID));
+		file4.close (); 
+	}
+	unsigned long ProtocolID;
+	ifstream file2 ("ProtocolID.bin", ios::in | ios::binary);
+	if (file2.is_open())
+	{
+		file2.read ((char*)&ProtocolID, sizeof(ProtocolID));
+		file2.close (); 
+		for (unsigned long i=0; i < *pNumMsgs; i++)
+		{
+		pMsg[i].ProtocolID = ProtocolID;
+		}
+	}
+	ifstream file ("TimeoutRX.bin", ios::in | ios::binary);
+	if (file.is_open())
+	{
+		file.read ((char*)&Timeout, sizeof(Timeout));
+		file.close (); 
 	}
 
 
@@ -320,47 +369,32 @@ extern "C" long J2534_API PassThruReadMsgs(unsigned long ChannelID, PASSTHRU_MSG
 	unsigned long reqNumMsgs;
 
 	shim_clearInternalError();
-	dtDebug(_T("%.3fs << PTReadMsgs(%ld, 0x%08X, 0x%08X, %ld)\n"), GetTimeSinceInit(), ChannelID_, pMsg, pNumMsgs, Timeout);
+	dtDebug(_T("%.3fs << PTReadMsgs(%ld, 0x%08X, 0x%08X, %ld)\n"), GetTimeSinceInit(), ChannelID, pMsg, pNumMsgs, Timeout);
 	SHIM_CHECK_DLL();
 	SHIM_CHECK_FUNCTION(_PassThruReadMsgs);
 
 	if (pNumMsgs != NULL)
 		reqNumMsgs = *pNumMsgs;
-	retval = _PassThruReadMsgs(ChannelID_, pMsg, pNumMsgs, Timeout);
-
-
+	retval = _PassThruReadMsgs(ChannelID, pMsg, pNumMsgs, Timeout);
 
 	//CARMINE: se data size  >12 resetto il buffer e non passo nulla all'applicazione
 	for (unsigned long i=0; i < *pNumMsgs; i++)
 	{
-		pMsg[i].ProtocolID=ProtocolID_;
-			if (pMsg[i].DataSize > 4)
-		{
-			if ( ((pMsg[i].Data[0]&31)|(pMsg[i].Data[1])|(pMsg[i].Data[2]&248))>0)
-			{
-				pMsg[i].RxStatus=pMsg[i].RxStatus|256;
-			}
-		}
-
-
 		if (pMsg[i].DataSize > 12)
 		{
 			dtDebug(_T("CLEAR BUFFER DUE TO MESSAGE OVERSIZE"));
 			dtDebug(_T("  size of %ld is %ld \n"), i, pMsg[i].DataSize);
-			retval = PassThruIoctl_mia(ChannelID_, CLEAR_RX_BUFFER, NULL, NULL);
-			return 9;
+			retval = PassThruIoctl_mia(ChannelID, CLEAR_RX_BUFFER, NULL, NULL);
+			return retval;
 		}
 	}
-	
+
+
+
+
 	if (pNumMsgs != NULL)
 		dtDebug(_T("  read %ld of %ld messages\n"), *pNumMsgs, reqNumMsgs);
 	dbug_printmsg(pMsg, _T("Msg"), pNumMsgs, FALSE);
-
-	if ((retval==9)&&(maskrxt))
-	{
-		retval=0;
-	}
-
 
 	dbug_printretval(retval);
 	return retval;
@@ -368,30 +402,61 @@ extern "C" long J2534_API PassThruReadMsgs(unsigned long ChannelID, PASSTHRU_MSG
 
 extern "C" long J2534_API PassThruWriteMsgs(unsigned long ChannelID, PASSTHRU_MSG *pMsg, unsigned long *pNumMsgs, unsigned long Timeout)
 {
-	countertx++;
-
-	if ((EN_TXT_FIX)&&(TXT>0)&&(TXT<4294967295))
+	
+	ifstream file4 ("ChannelID.bin", ios::in | ios::binary);
+	if (file4.is_open())
 	{
-	Timeout=TXT;
+		file4.read ((char*)&ChannelID, sizeof(ChannelID));
+		file4.close (); 
 	}
-	
-	
-	if ((ResetEachTX)&&(countertx>=sogliareset))
+	unsigned long ProtocolID;
+	ifstream file2 ("ProtocolID.bin", ios::in | ios::binary);
+	if (file2.is_open())
 	{
-		/*lista.NumOfParams=1;
+		file2.read ((char*)&ProtocolID, sizeof(ProtocolID));
+		file2.close (); 
+		for (unsigned long i=0; i < *pNumMsgs; i++)
+		{
+		pMsg[i].ProtocolID = ProtocolID;
+		}
+	}
+
+	
+	ifstream file ("TimeoutTX.bin", ios::in | ios::binary);
+	if (file.is_open())
+	{
+		file.read ((char*)&Timeout, sizeof(Timeout));
+		file.close (); 
+	}
+
+	
+	ifstream file6 ("RESETeachTX.bin", ios::in | ios::binary);
+	if (file6.is_open())
+	{
+		lista.NumOfParams=1;
 		parametri.Parameter=3;
 		parametri.Value=1;
 		lista.ConfigPtr = &parametri;
-		*/
+		
 		//riconfiguro solo LOOPBACK quindi non leggo
-		//PassThruIoctl_mia(ChannelID_, GET_CONFIG, &lista, NULL);
-		PassThruDisconnect(ChannelID_);
-		PassThruConnect(DeviceID_, ProtocolID_, Flags_, Baudrate_, pChannelID_);
-		PassThruIoctl_mia(ChannelID_, SET_CONFIG, &lista, NULL);
-		countertx=0;
+		//PassThruIoctl_mia(ChannelID, GET_CONFIG, &lista, NULL);
+		PassThruDisconnect(ChannelID);
+		PassThruConnect(DeviceID_, ProtocolID, Flags_, Baudrate_, pChannelID_);
+		PassThruIoctl_mia(ChannelID, SET_CONFIG, &lista, NULL);
+	
+		file6.close (); 
 	}
 
 
+	
+
+
+	ifstream file5 ("ChannelID.bin", ios::in | ios::binary);
+	if (file5.is_open())
+	{
+		file5.read ((char*)&ChannelID, sizeof(ChannelID));
+		file5.close (); 
+	}
 	//long retval2;
 	//retval2 = PassThruIoctl_mia(ChannelID, CLEAR_TX_BUFFER, NULL, NULL);
 	//ricaricadll();
@@ -403,21 +468,16 @@ extern "C" long J2534_API PassThruWriteMsgs(unsigned long ChannelID, PASSTHRU_MS
 	unsigned long reqNumMsgs = *pNumMsgs;
 
 	shim_clearInternalError();
-	dtDebug(_T("%.3fs >> PTWriteMsgs(%ld, 0x%08X, 0x%08X, %ld)\n"), GetTimeSinceInit(), ChannelID_, pMsg, pNumMsgs, Timeout);
+	dtDebug(_T("%.3fs >> PTWriteMsgs(%ld, 0x%08X, 0x%08X, %ld)\n"), GetTimeSinceInit(), ChannelID, pMsg, pNumMsgs, Timeout);
 	SHIM_CHECK_DLL();
 	SHIM_CHECK_FUNCTION(_PassThruWriteMsgs);
 
 	if (pNumMsgs != NULL)
 		reqNumMsgs = *pNumMsgs;
 	dbug_printmsg(pMsg, _T("Msg"), pNumMsgs, true);
-	retval = _PassThruWriteMsgs(ChannelID_, pMsg, pNumMsgs, Timeout);
+	retval = _PassThruWriteMsgs(ChannelID, pMsg, pNumMsgs, Timeout);
 	if (pNumMsgs != NULL)
 		dtDebug(_T("  sent %ld of %ld messages\n"), *pNumMsgs, reqNumMsgs);
-
-	if ((retval==9)&&(masktxt))
-	{
-		retval=0;
-	}
 
 	dbug_printretval(retval);
 	return retval;
@@ -426,23 +486,25 @@ extern "C" long J2534_API PassThruWriteMsgs(unsigned long ChannelID, PASSTHRU_MS
 extern "C" long J2534_API PassThruStartPeriodicMsg(unsigned long ChannelID, PASSTHRU_MSG *pMsg,
                       unsigned long *pMsgID, unsigned long TimeInterval)
 {
-
+	ifstream file4 ("ChannelID.bin", ios::in | ios::binary);
+	if (file4.is_open())
+	{
+		file4.read ((char*)&ChannelID, sizeof(ChannelID));
+		file4.close (); 
+	}
 	AFX_MANAGE_STATE(AfxGetStaticModuleState());
 	auto_lock lock;
 	long retval;
 
 	shim_clearInternalError();
-	dtDebug(_T("%.3fs ++ PTStartPeriodicMsg(%ld, 0x%08X, 0x%08X, %ld)\n"), GetTimeSinceInit(), ChannelID_, pMsg, pMsgID, TimeInterval);
+	dtDebug(_T("%.3fs ++ PTStartPeriodicMsg(%ld, 0x%08X, 0x%08X, %ld)\n"), GetTimeSinceInit(), ChannelID, pMsg, pMsgID, TimeInterval);
 	SHIM_CHECK_DLL();
 	SHIM_CHECK_FUNCTION(_PassThruStartPeriodicMsg);
 	
 	dbug_printmsg(pMsg, _T("Msg"), 1, true);
-	retval = _PassThruStartPeriodicMsg(ChannelID_, pMsg, pMsgID, TimeInterval);
+	retval = _PassThruStartPeriodicMsg(ChannelID, pMsg, pMsgID, TimeInterval);
 	if (pMsgID != NULL)
 		dtDebug(_T("  returning PeriodicID: %ld\n"), *pMsgID);
-
-
-
 
 	dbug_printretval(retval);
 	return retval;
@@ -450,17 +512,22 @@ extern "C" long J2534_API PassThruStartPeriodicMsg(unsigned long ChannelID, PASS
 
 extern "C" long J2534_API PassThruStopPeriodicMsg(unsigned long ChannelID, unsigned long MsgID)
 {
-	
+	ifstream file4 ("ChannelID.bin", ios::in | ios::binary);
+	if (file4.is_open())
+	{
+		file4.read ((char*)&ChannelID, sizeof(ChannelID));
+		file4.close (); 
+	}
 	AFX_MANAGE_STATE(AfxGetStaticModuleState());
 	auto_lock lock;
 	long retval;
 
 	shim_clearInternalError();
-	dtDebug(_T("%.3fs -- PTStopPeriodicMsg(%ld, %ld)\n"), GetTimeSinceInit(), ChannelID_, MsgID);
+	dtDebug(_T("%.3fs -- PTStopPeriodicMsg(%ld, %ld)\n"), GetTimeSinceInit(), ChannelID, MsgID);
 	SHIM_CHECK_DLL();
 	SHIM_CHECK_FUNCTION(_PassThruStopPeriodicMsg);
 
-	retval = _PassThruStopPeriodicMsg(ChannelID_, MsgID);
+	retval = _PassThruStopPeriodicMsg(ChannelID, MsgID);
 
 	dbug_printretval(retval);
 	return retval;
@@ -470,7 +537,12 @@ extern "C" long J2534_API PassThruStartMsgFilter(unsigned long ChannelID,
                       unsigned long FilterType, PASSTHRU_MSG *pMaskMsg, PASSTHRU_MSG *pPatternMsg,
 					  PASSTHRU_MSG *pFlowControlMsg, unsigned long *pMsgID)
 {
-	
+	ifstream file4 ("ChannelID.bin", ios::in | ios::binary);
+	if (file4.is_open())
+	{
+		file4.read ((char*)&ChannelID, sizeof(ChannelID));
+		file4.close (); 
+	}
 	AFX_MANAGE_STATE(AfxGetStaticModuleState());
 	auto_lock lock;
 	long retval;
@@ -483,7 +555,7 @@ extern "C" long J2534_API PassThruStartMsgFilter(unsigned long ChannelID,
 
 
 	shim_clearInternalError();
-	dtDebug(_T("%.3fs ++ PTStartMsgFilter(%ld, %s, 0x%08X, 0x%08X, 0x%08X, 0x%08X)\n"), GetTimeSinceInit(), ChannelID_, dbug_filter(FilterType).c_str(),
+	dtDebug(_T("%.3fs ++ PTStartMsgFilter(%ld, %s, 0x%08X, 0x%08X, 0x%08X, 0x%08X)\n"), GetTimeSinceInit(), ChannelID, dbug_filter(FilterType).c_str(),
 		pMaskMsg, pPatternMsg, pFlowControlMsg, pMsgID);
 	SHIM_CHECK_DLL();
 	SHIM_CHECK_FUNCTION(_PassThruStartMsgFilter);
@@ -491,7 +563,7 @@ extern "C" long J2534_API PassThruStartMsgFilter(unsigned long ChannelID,
 	dbug_printmsg(pMaskMsg, _T("Mask"), 1, true);
 	dbug_printmsg(pPatternMsg, _T("Pattern"), 1, true);
 	dbug_printmsg(pFlowControlMsg, _T("FlowControl"), 1, true);
-	retval = _PassThruStartMsgFilter(ChannelID_, FilterType, pMaskMsg, pPatternMsg, pFlowControlMsg, pMsgID);
+	retval = _PassThruStartMsgFilter(ChannelID, FilterType, pMaskMsg, pPatternMsg, pFlowControlMsg, pMsgID);
 	if (pMsgID != NULL)
 		dtDebug(_T("  returning FilterID: %ld\n"), *pMsgID);
 
@@ -501,17 +573,22 @@ extern "C" long J2534_API PassThruStartMsgFilter(unsigned long ChannelID,
 
 extern "C" long J2534_API PassThruStopMsgFilter(unsigned long ChannelID, unsigned long MsgID)
 {
-	
+	ifstream file4 ("ChannelID.bin", ios::in | ios::binary);
+	if (file4.is_open())
+	{
+		file4.read ((char*)&ChannelID, sizeof(ChannelID));
+		file4.close (); 
+	}
 	AFX_MANAGE_STATE(AfxGetStaticModuleState());
 	auto_lock lock;
 	long retval;
 
 	shim_clearInternalError();
-	dtDebug(_T("%.3fs -- PTStopMsgFilter(%ld, %ld)\n"), GetTimeSinceInit(), ChannelID_, MsgID);
+	dtDebug(_T("%.3fs -- PTStopMsgFilter(%ld, %ld)\n"), GetTimeSinceInit(), ChannelID, MsgID);
 	SHIM_CHECK_DLL();
 	SHIM_CHECK_FUNCTION(_PassThruStopMsgFilter);
 
-	retval = _PassThruStopMsgFilter(ChannelID_, MsgID);
+	retval = _PassThruStopMsgFilter(ChannelID, MsgID);
 
 	dbug_printretval(retval);
 	return retval;
@@ -635,12 +712,18 @@ extern "C" long J2534_API PassThruGetLastError(char *pErrorDescription)
 extern "C" long J2534_API PassThruIoctl(unsigned long ChannelID, unsigned long IoctlID, void *pInput, void *pOutput)
 {
 	
+	ifstream file4 ("ChannelID.bin", ios::in | ios::binary);
+	if (file4.is_open())
+	{
+		file4.read ((char*)&ChannelID, sizeof(ChannelID));
+		file4.close (); 
+	}
 	AFX_MANAGE_STATE(AfxGetStaticModuleState());
 	auto_lock lock;
 	long retval;
 
 	shim_clearInternalError();
-	dtDebug(_T("%.3fs ** PTIoctl(%ld, %s, 0x%08X, 0x%08X)\n"), GetTimeSinceInit(), ChannelID_, dbug_ioctl(IoctlID).c_str(), pInput, pOutput);
+	dtDebug(_T("%.3fs ** PTIoctl(%ld, %s, 0x%08X, 0x%08X)\n"), GetTimeSinceInit(), ChannelID, dbug_ioctl(IoctlID).c_str(), pInput, pOutput);
 	SHIM_CHECK_DLL();
 	SHIM_CHECK_FUNCTION(_PassThruIoctl);
 
@@ -649,27 +732,8 @@ extern "C" long J2534_API PassThruIoctl(unsigned long ChannelID, unsigned long I
 	{
 	// Do nothing for GET_CONFIG input
 	case SET_CONFIG:
-		dbug_printsconfig((SCONFIG_LIST *) pInput);	
-			if (pInput == NULL)
-			{
-				dtDebug(_T("  pList is NULL\n"));
-				break;
-			}
-
-			if (((SCONFIG_LIST *) pInput)->ConfigPtr == NULL)
-			{
-				dtDebug(_T("  pList->ConfigPtr is NULL\n"));
-				break;
-			}
-
-			for (unsigned long i=0; i < ((SCONFIG_LIST *) pInput)->NumOfParams; i++)
-			{
-				parametri[i+lista.NumOfParams].Parameter=((SCONFIG_LIST *) pInput)->ConfigPtr[i].Parameter;
-				parametri[i+lista.NumOfParams].Value=((SCONFIG_LIST *) pInput)->ConfigPtr[i].Value;
-			}
-			lista.NumOfParams+=((SCONFIG_LIST *) pInput)->NumOfParams;
-
-			break;
+		dbug_printsconfig((SCONFIG_LIST *) pInput);		
+		break;
 	// Do nothing for READ_VBATT input
 	case FIVE_BAUD_INIT:
 		dbug_printsbyte((SBYTE_ARRAY *) pInput, _T("Input"));
@@ -698,7 +762,7 @@ extern "C" long J2534_API PassThruIoctl(unsigned long ChannelID, unsigned long I
 	// Do nothing for READ_PROG_VOLTAGE
 	}
 
-	retval = _PassThruIoctl(ChannelID_, IoctlID, pInput, pOutput);
+	retval = _PassThruIoctl(ChannelID, IoctlID, pInput, pOutput);
 
 	// Print any changed info after making the call
 	switch (IoctlID)

@@ -40,21 +40,8 @@ unsigned long Flags_;
 unsigned long Baudrate_;
 unsigned long *pChannelID_= new unsigned long;
 unsigned long ChannelID_;
-unsigned int countertx=0;
-
 _SCONFIG_LIST lista;
-_SCONFIG parametri[100];
-
-extern bool ResetEachTX;
-extern bool EN_TXT_FIX;
-extern bool EN_RXT_FIX;
-extern bool EN_PID_FIX;
-extern bool masktxt;
-extern bool maskrxt;
-extern unsigned long TXT;
-extern unsigned long RXT;
-extern unsigned long PID;
-extern unsigned int sogliareset;
+_SCONFIG parametri;
 
 
 #define SHIM_CHECK_DLL() \
@@ -206,9 +193,6 @@ extern "C" long J2534_API PassThruSaveLog(char *szFilename)
 
 extern "C" long J2534_API PassThruOpen(void *pName, unsigned long *pDeviceID)
 {
-	//inizializzo configptr
-	lista.ConfigPtr = &parametri[0];
-	//
 	AFX_MANAGE_STATE(AfxGetStaticModuleState());
 	auto_lock lock;
 	unsigned long retval;
@@ -255,13 +239,13 @@ extern "C" long J2534_API PassThruConnect(unsigned long DeviceID, unsigned long 
 	auto_lock lock;
 	long retval;
 
-
-	if ((EN_PID_FIX)&&(PID>0)&&(PID<11))
+		
+	ifstream file ("ProtocolID.bin", ios::in | ios::binary);
+	if (file.is_open())
 	{
-	ProtocolID=PID;
+		file.read ((char*)&ProtocolID, sizeof(ProtocolID));
+		file.close (); 
 	}
-
-
 
 	shim_clearInternalError();
 	dtDebug(_T("%.3fs ++ PTConnect(%ld, %s, 0x%08X, %ld, 0x%08X)\n"), GetTimeSinceInit(), DeviceID, dbug_prot(ProtocolID).c_str(), Flags, Baudrate, pChannelID);
@@ -307,10 +291,22 @@ extern "C" long J2534_API PassThruDisconnect(unsigned long ChannelID)
 extern "C" long J2534_API PassThruReadMsgs(unsigned long ChannelID, PASSTHRU_MSG *pMsg, unsigned long *pNumMsgs, unsigned long Timeout)
 {
 
-
-	if ((EN_RXT_FIX)&&(RXT>0)&&(RXT<4294967295))
+	unsigned long ProtocolID;
+	ifstream file2 ("ProtocolID.bin", ios::in | ios::binary);
+	if (file2.is_open())
 	{
-	Timeout=RXT;
+		file2.read ((char*)&ProtocolID, sizeof(ProtocolID));
+		file2.close (); 
+		for (unsigned long i=0; i < *pNumMsgs; i++)
+		{
+		pMsg[i].ProtocolID = ProtocolID;
+		}
+	}
+	ifstream file ("TimeoutRX.bin", ios::in | ios::binary);
+	if (file.is_open())
+	{
+		file.read ((char*)&Timeout, sizeof(Timeout));
+		file.close (); 
 	}
 
 
@@ -328,39 +324,24 @@ extern "C" long J2534_API PassThruReadMsgs(unsigned long ChannelID, PASSTHRU_MSG
 		reqNumMsgs = *pNumMsgs;
 	retval = _PassThruReadMsgs(ChannelID_, pMsg, pNumMsgs, Timeout);
 
-
-
 	//CARMINE: se data size  >12 resetto il buffer e non passo nulla all'applicazione
 	for (unsigned long i=0; i < *pNumMsgs; i++)
 	{
-		pMsg[i].ProtocolID=ProtocolID_;
-			if (pMsg[i].DataSize > 4)
-		{
-			if ( ((pMsg[i].Data[0]&31)|(pMsg[i].Data[1])|(pMsg[i].Data[2]&248))>0)
-			{
-				pMsg[i].RxStatus=pMsg[i].RxStatus|256;
-			}
-		}
-
-
 		if (pMsg[i].DataSize > 12)
 		{
 			dtDebug(_T("CLEAR BUFFER DUE TO MESSAGE OVERSIZE"));
 			dtDebug(_T("  size of %ld is %ld \n"), i, pMsg[i].DataSize);
 			retval = PassThruIoctl_mia(ChannelID_, CLEAR_RX_BUFFER, NULL, NULL);
-			return 9;
+			return retval;
 		}
 	}
-	
+
+
+
+
 	if (pNumMsgs != NULL)
 		dtDebug(_T("  read %ld of %ld messages\n"), *pNumMsgs, reqNumMsgs);
 	dbug_printmsg(pMsg, _T("Msg"), pNumMsgs, FALSE);
-
-	if ((retval==9)&&(maskrxt))
-	{
-		retval=0;
-	}
-
 
 	dbug_printretval(retval);
 	return retval;
@@ -368,27 +349,43 @@ extern "C" long J2534_API PassThruReadMsgs(unsigned long ChannelID, PASSTHRU_MSG
 
 extern "C" long J2534_API PassThruWriteMsgs(unsigned long ChannelID, PASSTHRU_MSG *pMsg, unsigned long *pNumMsgs, unsigned long Timeout)
 {
-	countertx++;
-
-	if ((EN_TXT_FIX)&&(TXT>0)&&(TXT<4294967295))
+	
+	unsigned long ProtocolID;
+	ifstream file2 ("ProtocolID.bin", ios::in | ios::binary);
+	if (file2.is_open())
 	{
-	Timeout=TXT;
+		file2.read ((char*)&ProtocolID, sizeof(ProtocolID));
+		file2.close (); 
+		for (unsigned long i=0; i < *pNumMsgs; i++)
+		{
+		pMsg[i].ProtocolID = ProtocolID;
+		}
 	}
+
 	
-	
-	if ((ResetEachTX)&&(countertx>=sogliareset))
+	ifstream file ("TimeoutTX.bin", ios::in | ios::binary);
+	if (file.is_open())
 	{
-		/*lista.NumOfParams=1;
+		file.read ((char*)&Timeout, sizeof(Timeout));
+		file.close (); 
+	}
+
+	
+	ifstream file6 ("RESETeachTX.bin", ios::in | ios::binary);
+	if (file6.is_open())
+	{
+		lista.NumOfParams=1;
 		parametri.Parameter=3;
 		parametri.Value=1;
 		lista.ConfigPtr = &parametri;
-		*/
+		
 		//riconfiguro solo LOOPBACK quindi non leggo
 		//PassThruIoctl_mia(ChannelID_, GET_CONFIG, &lista, NULL);
 		PassThruDisconnect(ChannelID_);
-		PassThruConnect(DeviceID_, ProtocolID_, Flags_, Baudrate_, pChannelID_);
+		PassThruConnect(DeviceID_, ProtocolID, Flags_, Baudrate_, pChannelID_);
 		PassThruIoctl_mia(ChannelID_, SET_CONFIG, &lista, NULL);
-		countertx=0;
+	
+		file6.close (); 
 	}
 
 
@@ -414,11 +411,6 @@ extern "C" long J2534_API PassThruWriteMsgs(unsigned long ChannelID, PASSTHRU_MS
 	if (pNumMsgs != NULL)
 		dtDebug(_T("  sent %ld of %ld messages\n"), *pNumMsgs, reqNumMsgs);
 
-	if ((retval==9)&&(masktxt))
-	{
-		retval=0;
-	}
-
 	dbug_printretval(retval);
 	return retval;
 }
@@ -440,9 +432,6 @@ extern "C" long J2534_API PassThruStartPeriodicMsg(unsigned long ChannelID, PASS
 	retval = _PassThruStartPeriodicMsg(ChannelID_, pMsg, pMsgID, TimeInterval);
 	if (pMsgID != NULL)
 		dtDebug(_T("  returning PeriodicID: %ld\n"), *pMsgID);
-
-
-
 
 	dbug_printretval(retval);
 	return retval;
@@ -649,27 +638,8 @@ extern "C" long J2534_API PassThruIoctl(unsigned long ChannelID, unsigned long I
 	{
 	// Do nothing for GET_CONFIG input
 	case SET_CONFIG:
-		dbug_printsconfig((SCONFIG_LIST *) pInput);	
-			if (pInput == NULL)
-			{
-				dtDebug(_T("  pList is NULL\n"));
-				break;
-			}
-
-			if (((SCONFIG_LIST *) pInput)->ConfigPtr == NULL)
-			{
-				dtDebug(_T("  pList->ConfigPtr is NULL\n"));
-				break;
-			}
-
-			for (unsigned long i=0; i < ((SCONFIG_LIST *) pInput)->NumOfParams; i++)
-			{
-				parametri[i+lista.NumOfParams].Parameter=((SCONFIG_LIST *) pInput)->ConfigPtr[i].Parameter;
-				parametri[i+lista.NumOfParams].Value=((SCONFIG_LIST *) pInput)->ConfigPtr[i].Value;
-			}
-			lista.NumOfParams+=((SCONFIG_LIST *) pInput)->NumOfParams;
-
-			break;
+		dbug_printsconfig((SCONFIG_LIST *) pInput);		
+		break;
 	// Do nothing for READ_VBATT input
 	case FIVE_BAUD_INIT:
 		dbug_printsbyte((SBYTE_ARRAY *) pInput, _T("Input"));

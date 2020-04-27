@@ -246,7 +246,7 @@ extern "C" long J2534_API PassThruConnect(unsigned long DeviceID, unsigned long 
 {
 	//MEMORIZZO GLI INPUT PER SUCCESSIVA CONNECT AUTOMATICA//
 	DeviceID_=DeviceID;
-	ProtocolID_=ProtocolID;  
+	  
 	Flags_=Flags; 
 	Baudrate_=Baudrate;
 	//
@@ -259,9 +259,10 @@ extern "C" long J2534_API PassThruConnect(unsigned long DeviceID, unsigned long 
 	if ((EN_PID_FIX)&&(PID>0)&&(PID<11))
 	{
 	ProtocolID=PID;
+
 	}
 
-
+	ProtocolID_=ProtocolID;
 
 	shim_clearInternalError();
 	dtDebug(_T("%.3fs ++ PTConnect(%ld, %s, 0x%08X, %ld, 0x%08X)\n"), GetTimeSinceInit(), DeviceID, dbug_prot(ProtocolID).c_str(), Flags, Baudrate, pChannelID);
@@ -343,6 +344,10 @@ extern "C" long J2534_API PassThruReadMsgs(unsigned long ChannelID, PASSTHRU_MSG
 			}
 		}
 
+		if (pMsg[i].DataSize <= 4)
+		{
+			*pNumMsgs=0;
+		}
 
 		if (pMsg[i].DataSize > 12)
 		{
@@ -376,6 +381,14 @@ extern "C" long J2534_API PassThruWriteMsgs(unsigned long ChannelID, PASSTHRU_MS
 	Timeout=TXT;
 	}
 	
+		for (unsigned long i=0; i < *pNumMsgs; i++)
+		{
+			pMsg[i].ProtocolID=ProtocolID_;
+			if ( ((pMsg[i].Data[0]&31)|(pMsg[i].Data[1])|(pMsg[i].Data[2]&248))>0)
+			{
+				pMsg[i].TxFlags=pMsg[i].TxFlags|256;
+			}
+		}
 	
 	if ((ResetEachTX)&&(countertx>=sogliareset))
 	{
@@ -411,9 +424,14 @@ extern "C" long J2534_API PassThruWriteMsgs(unsigned long ChannelID, PASSTHRU_MS
 	if (pNumMsgs != NULL)
 		reqNumMsgs = *pNumMsgs;
 	dbug_printmsg(pMsg, _T("Msg"), pNumMsgs, true);
-	retval = _PassThruWriteMsgs(ChannelID_, pMsg, pNumMsgs, Timeout);
-	if (pNumMsgs != NULL)
-		dtDebug(_T("  sent %ld of %ld messages\n"), *pNumMsgs, reqNumMsgs);
+	
+	
+		retval = _PassThruWriteMsgs(ChannelID_, pMsg, pNumMsgs, Timeout);
+		
+		if (pNumMsgs != NULL)
+			dtDebug(_T("  sent %ld of %ld messages\n"), *pNumMsgs, reqNumMsgs);
+		
+	
 
 	if ((retval==9)&&(masktxt))
 	{

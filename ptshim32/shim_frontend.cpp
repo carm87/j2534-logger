@@ -334,9 +334,9 @@ extern "C" long J2534_API PassThruReadMsgs(unsigned long ChannelID, PASSTHRU_MSG
 	//CARMINE: se data size  >12 resetto il buffer e cancello il messaggio
 	//se data size <=4 cancello il messaggio
 	
-	unsigned long n = *pNumMsgs;
+	unsigned long n = *pNumMsgs; //2
 	unsigned long i;
-	unsigned long pnumold = *pNumMsgs;
+	unsigned long pnumold = *pNumMsgs; //2
 
 	while (n>0)
 	{
@@ -356,7 +356,7 @@ extern "C" long J2534_API PassThruReadMsgs(unsigned long ChannelID, PASSTHRU_MSG
 			if (n<pnumold) 
 			{
 				i=n-1;
-				while (i < (n-1))
+				while (i < (pnumold-1))
 				{
 					pMsg[i]=pMsg[i+1];
 					i++;
@@ -370,8 +370,8 @@ extern "C" long J2534_API PassThruReadMsgs(unsigned long ChannelID, PASSTHRU_MSG
 			*pNumMsgs=(*pNumMsgs)-1;
 			if (n<pnumold) 
 			{
-				i=n-1;
-				while (i < (n-1))
+				i=n-1;//0
+				while (i < (pnumold-1))
 				{
 					pMsg[i]=pMsg[i+1];
 					i++;

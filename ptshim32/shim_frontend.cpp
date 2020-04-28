@@ -331,31 +331,54 @@ extern "C" long J2534_API PassThruReadMsgs(unsigned long ChannelID, PASSTHRU_MSG
 
 
 
-	//CARMINE: se data size  >12 resetto il buffer e non passo nulla all'applicazione
-	for (unsigned long i=0; i < *pNumMsgs; i++)
+	//CARMINE: se data size  >12 resetto il buffer e cancello il messaggio
+	//se data size <=4 cancello il messaggio
+	
+	unsigned long n = *pNumMsgs;
+	unsigned long i;
+	unsigned long pnumold = *pNumMsgs;
+
+	while (n>0)
 	{
-		pMsg[i].ProtocolID=ProtocolID_;
-		pMsg[i].Timestamp*=1000;
-			if (pMsg[i].DataSize > 4)
+		pMsg[n-1].ProtocolID=ProtocolID_;
+		pMsg[n-1].Timestamp*=1000;
+		if ( ((pMsg[n-1].Data[0]&31)|(pMsg[n-1].Data[1])|(pMsg[n-1].Data[2]&248))>0)
 		{
-			if ( ((pMsg[i].Data[0]&31)|(pMsg[i].Data[1])|(pMsg[i].Data[2]&248))>0)
-			{
-				pMsg[i].RxStatus=pMsg[i].RxStatus|256;
-			}
+			pMsg[n-1].RxStatus=pMsg[n-1].RxStatus|256;
 		}
-
-		if (pMsg[i].DataSize <= 4)
-		{
-			*pNumMsgs=0;
-		}
-
-		if (pMsg[i].DataSize > 12)
+		if (pMsg[n-1].DataSize > 12)
 		{
 			dtDebug(_T("CLEAR BUFFER DUE TO MESSAGE OVERSIZE"));
 			dtDebug(_T("  size of %ld is %ld \n"), i, pMsg[i].DataSize);
 			retval = PassThruIoctl_mia(ChannelID_, CLEAR_RX_BUFFER, NULL, NULL);
-			return 9;
+			retval = 9;
+			*pNumMsgs=(*pNumMsgs)-1;
+			if (n<pnumold) 
+			{
+				i=n-1;
+				while (i < (n-1))
+				{
+					pMsg[i]=pMsg[i+1];
+					i++;
+				}
+				
+			}
+		
 		}
+		if (pMsg[n-1].DataSize <= 4)
+		{
+			*pNumMsgs=(*pNumMsgs)-1;
+			if (n<pnumold) 
+			{
+				i=n-1;
+				while (i < (n-1))
+				{
+					pMsg[i]=pMsg[i+1];
+					i++;
+				}
+			}
+		}
+		n--;
 	}
 	
 	if (pNumMsgs != NULL)
